@@ -1,0 +1,65 @@
+name: nl2sql-exp-tb
+
+x-api: &api
+  image: thingsboard-lab-nl2sql-api:latest
+  restart: "no"
+  networks: [shared-net]
+
+x-env: &env
+  DB_HOST: datalake-postgres
+  DB_USER: postgres
+  DB_PASSWORD: ${DB_PASSWORD}
+  DB_PORT: "5432"
+  DB_SCHEMA: public
+  OLLAMA_HOST: http://ollama:11434
+  OLLAMA_TIMEOUT: "1800"
+  OLLAMA_KEEP_ALIVE: "-1"
+  WARMUP_ON_STARTUP: "true"
+  SQL_MODEL: qwen2.5-coder:14b
+  ANSWER_MODEL: qwen2.5-coder:14b
+
+services:
+  api-opaque:
+    <<: *api
+    container_name: nl2sql-exp-opaque
+    ports: ["127.0.0.1:8002:8000"]
+    environment:
+      <<: *env
+      DB_NAME: iot_tb
+      DOMAIN_FILE: domain_opaque.yaml
+    volumes: ["./domain_opaque.yaml:/app/domain_opaque.yaml:ro"]
+
+  api-opaque-bare:
+    <<: *api
+    container_name: nl2sql-exp-opaque-bare
+    ports: ["127.0.0.1:8003:8000"]
+    environment:
+      <<: *env
+      DB_NAME: iot_tb
+      DOMAIN_FILE: domain_opaque_bare.yaml
+    volumes: ["./domain_opaque_bare.yaml:/app/domain_opaque_bare.yaml:ro"]
+
+  api-opaque-nodesc:
+    <<: *api
+    container_name: nl2sql-exp-opaque-nodesc
+    ports: ["127.0.0.1:8005:8000"]
+    environment:
+      <<: *env
+      DB_NAME: iot_tb
+      DOMAIN_FILE: domain_opaque_nodesc.yaml
+    volumes: ["./domain_opaque_nodesc.yaml:/app/domain_opaque_nodesc.yaml:ro"]
+
+  api-clear-bare:
+    <<: *api
+    container_name: nl2sql-exp-clear-bare
+    ports: ["127.0.0.1:8004:8000"]
+    environment:
+      <<: *env
+      DB_NAME: iot_staging
+      DOMAIN_FILE: domain_clear_bare.yaml
+    volumes: ["./domain_clear_bare.yaml:/app/domain_clear_bare.yaml:ro"]
+
+networks:
+  shared-net:
+    external: true
+    name: shared-services

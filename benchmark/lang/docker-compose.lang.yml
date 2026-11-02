@@ -1,0 +1,29 @@
+name: nl2sql-exp-lang
+
+services:
+  api-en:
+    image: thingsboard-lab-nl2sql-api:latest
+    container_name: nl2sql-exp-en
+    restart: "no"
+    networks: [shared-net]
+    ports: ["127.0.0.1:8006:8000"]
+    environment:
+      DB_HOST: datalake-postgres
+      DB_NAME: iot_staging
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: "5432"
+      DB_SCHEMA: public
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_TIMEOUT: "1800"
+      OLLAMA_KEEP_ALIVE: "-1"
+      WARMUP_ON_STARTUP: "true"
+      SQL_MODEL: qwen2.5-coder:14b
+      ANSWER_MODEL: qwen2.5-coder:14b
+      DOMAIN_FILE: domain_en.yaml
+    volumes: ["./domain_en.yaml:/app/domain_en.yaml:ro"]
+
+networks:
+  shared-net:
+    external: true
+    name: shared-services

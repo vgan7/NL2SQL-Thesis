@@ -1,0 +1,145 @@
+dataset:
+  name: "Smart factory machine telemetry"
+  description: >
+    Industrial telemetry from 50 machines of 5 types. Base data is a public
+    Kaggle dataset (cleaned); maintenance_log / machine_master are synthetic
+    additions for relational (join) testing.
+    Covers 2026-04-09 to 2026-06-17 (~70 days, one random machine sampled
+    per minute). Only May is a complete calendar month - April and June
+    are partial, so month-over-month comparisons reflect coverage, not trend.
+  static: true
+  time_anchor:
+    table: factory_telemetry_fixed
+    column: ts
+
+tables:
+  factory_telemetry_fixed:
+    description: "One row per machine reading (time series)."
+    columns:
+      id: "internal row id — never expose to the user"
+      ts: "timestamp of the reading"
+      machine_id: "machine identifier, 1-50"
+      machine_type: "category of machine"
+      machine_name: "human name of the machine, e.g. Press_01"
+      temperature: "temperature in °C"
+      vibration: "vibration in mm/s"
+      humidity: "relative humidity in %"
+      pressure: "pressure in bar"
+      energy_consumption: "energy consumption in kWh"
+      anomaly_flag: "1 = an anomaly was detected in this reading, else 0"
+      maintenance_required: "1 = maintenance is flagged as needed, else 0"
+      downtime_risk: "downtime-risk flag: effectively 0 or 1 (1 = high risk of unplanned downtime); treat like anomaly_flag"
+      predicted_remaining_life: "model estimate of hours until predicted failure"
+      failure_type: "detected fault category ('Normal' = no fault)"
+    values:
+      machine_type: ["Hydraulic Press", "CNC Lathe", "Robotic Arm", "Cooling System", "Packaging Unit"]
+      failure_type: ["Normal", "Overheating", "Vibration Issue", "Pressure Drop", "Electrical Fault"]
+
+synonyms:
+  ρεύμα: energy_consumption
+  ενέργεια: energy_consumption
+  κατανάλωση: energy_consumption
+  θερμοκρασία: temperature
+  δόνηση: vibration
+  δονήσεις: vibration
+  κραδασμοί: vibration
+  υγρασία: humidity
+  πίεση: pressure
+  βλάβη: failure_type
+  τύπος βλάβης: failure_type
+  ανωμαλία: anomaly_flag
+  συντήρηση: maintenance_required
+  κίνδυνος διακοπής: downtime_risk
+  υπολειπόμενη ζωή: predicted_remaining_life
+  υπερθέρμανση: "Overheating (failure_type)"
+  πτώση πίεσης: "Pressure Drop (failure_type)"
+  ηλεκτρική βλάβη: "Electrical Fault (failure_type)"
+  πρόβλημα δόνησης: "Vibration Issue (failure_type)"
+  υδραυλική πρέσα: "Hydraulic Press (machine_type)"
+  πρέσα: "Hydraulic Press (machine_type)"
+  πρέσες: "Hydraulic Press (machine_type)"
+  τόρνος: "CNC Lathe (machine_type)"
+  ρομποτικός βραχίονας: "Robotic Arm (machine_type)"
+  σύστημα ψύξης: "Cooling System (machine_type)"
+  μονάδα συσκευασίας: "Packaging Unit (machine_type)"
+
+rules:
+  - "Wrap FLOAT results in ROUND(value::numeric, 2)."
+  - >
+    DEFAULT — aggregate over ALL rows in range. Averages, sums, counts,
+    percentages, ratios, min/max and "ανά <group>" use every matching reading.
+    Do NOT restrict to each machine's most recent row — even when the question
+    names a single machine or a status column (maintenance_required,
+    failure_type, downtime_risk, predicted_remaining_life, anomaly_flag). This
+    does NOT stop you filtering ts by an explicit time range ("τον Μάιο",
+    "τελευταίες 7 ημέρες") — see the freshness note.
+  - >
+    EXCEPTION — only when the question is explicitly about the present moment
+    ("τώρα", "αυτή τη στιγμή", "τρέχουσα κατάσταση", "αυτόν τον καιρό", "στην
+    τελευταία/πιο πρόσφατη μέτρηση", or "ποιες μηχανές χρειάζονται [τώρα]
+    συντήρηση / έχουν [τώρα] βλάβη"): restrict to the latest reading per machine —
+    WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id).
+    You may aggregate (COUNT, AVG) on top of that.
+  - "'Normal' failure_type means no fault — exclude it (failure_type <> 'Normal') for questions about problems."
+  - "Use EXTRACT(hour FROM ts) for 'ώρα της ημέρας'; DATE_TRUNC('day'|'hour', ts) for time series."
+  - "Never SELECT *; name the columns needed to answer."
+  - >
+    If the question is about something no column represents (people, employees,
+    shifts, colours, prices/costs, locations, suppliers, schedules, weather, …),
+    the data cannot answer it — do NOT force-fit it onto existing columns.
+    Output exactly this and nothing else:  SELECT 'UNANSWERABLE' AS note;
+
+answer_rules:
+  - "Κράτα ΑΚΡΙΒΩΣ όπως είναι στα δεδομένα (χωρίς μετάφραση, χωρίς εισαγωγικά): ονόματα μηχανών (Press_01), τύπους μηχανών ('Hydraulic Press', 'CNC Lathe'), τιμές βλάβης ('Overheating', 'Vibration Issue', 'Pressure Drop', 'Electrical Fault'), μονάδες (kWh, mm/s, bar, °C, ώρες)."
+  - "Μη προσθέτεις δικές σου περιγραφικές λέξεις (π.χ. τύπο εξοπλισμού) πριν από ένα όνομα μηχανής — γράψε μόνο «η μηχανή Chiller_37»."
+  - "Ορθογραφία: γράφε «θερμοκρασία» (ΟΧΙ «θερμοκράσια»), «κατανάλωση», «υπολειπόμενη ζωή», «δόνηση», «πίεση», «υγρασία»."
+  - "'Normal' στη στήλη failure_type σημαίνει ότι η μηχανή λειτουργεί κανονικά, χωρίς βλάβη."
+
+column_nouns:
+  machine_name: "μηχανές"
+
+answer_fixes:
+  "θερμοκράσι": "θερμοκρασί"
+  "κυμανθήκε": "κυμάνθηκε"
+
+examples:
+  - q: "Ποια είναι η μέση θερμοκρασία;"
+    sql: "SELECT ROUND(AVG(temperature)::numeric, 2) AS avg_temperature FROM factory_telemetry_fixed;"
+  - q: "Ποια μηχανή έχει τη μεγαλύτερη κατανάλωση ενέργειας;"
+    sql: "SELECT machine_name, ROUND(MAX(energy_consumption)::numeric, 2) AS max_energy FROM factory_telemetry_fixed GROUP BY machine_name ORDER BY max_energy DESC LIMIT 1;"
+  - q: "Πόσες εγγραφές υπάρχουν;"
+    sql: "SELECT COUNT(*) AS total_rows FROM factory_telemetry_fixed;"
+  - q: "Μέση δόνηση ανά τύπο μηχανής;"
+    sql: "SELECT machine_type, ROUND(AVG(vibration)::numeric, 2) AS avg_vibration FROM factory_telemetry_fixed GROUP BY machine_type ORDER BY avg_vibration DESC;"
+  - q: "Δείξε τις 5 τελευταίες μετρήσεις θερμοκρασίας."
+    sql: "SELECT ts, machine_name, ROUND(temperature::numeric, 2) AS temperature FROM factory_telemetry_fixed ORDER BY ts DESC LIMIT 5;"
+  - q: "Ποιες μηχανές έχουν θερμοκρασία πάνω από 80;"
+    sql: "SELECT DISTINCT machine_name, ROUND(MAX(temperature)::numeric, 2) AS max_temp FROM factory_telemetry_fixed WHERE temperature > 80 GROUP BY machine_name ORDER BY max_temp DESC;"
+  - q: "Συνολική κατανάλωση ενέργειας ανά τύπο μηχανής;"
+    sql: "SELECT machine_type, ROUND(SUM(energy_consumption)::numeric, 2) AS total_energy FROM factory_telemetry_fixed GROUP BY machine_type ORDER BY total_energy DESC;"
+  - q: "Ποιες μηχανές χρειάζονται συντήρηση;"
+    sql: "SELECT machine_name, machine_type FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) AND maintenance_required = 1 ORDER BY machine_name;"
+  - q: "Πόσες μηχανές χρειάζονται αυτή τη στιγμή συντήρηση;"
+    sql: "SELECT COUNT(*) AS machines_needing_maintenance FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) AND maintenance_required = 1;"
+  - q: "Πόσες ανωμαλίες ανά τύπο μηχανής;"
+    sql: "SELECT machine_type, COUNT(*) AS anomaly_count FROM factory_telemetry_fixed WHERE anomaly_flag = 1 GROUP BY machine_type ORDER BY anomaly_count DESC;"
+  - q: "Ποια μηχανή είχε τις περισσότερες ανωμαλίες σε όλη την περίοδο;"
+    sql: "SELECT machine_name, COUNT(*) AS anomaly_count FROM factory_telemetry_fixed WHERE anomaly_flag = 1 GROUP BY machine_name ORDER BY anomaly_count DESC LIMIT 1;"
+  - q: "Ποιοι είναι οι πιο συχνοί τύποι βλάβης;"
+    sql: "SELECT failure_type, COUNT(*) AS count FROM factory_telemetry_fixed WHERE failure_type <> 'Normal' GROUP BY failure_type ORDER BY count DESC;"
+  - q: "Ποιες μηχανές έχουν τώρα βλάβη;"
+    sql: "SELECT machine_name, machine_type, failure_type FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) AND failure_type <> 'Normal' ORDER BY machine_name;"
+  - q: "Ποιες μηχανές έχουν προβλεπόμενη υπολειπόμενη ζωή κάτω από 100 ώρες και ποιος ο τύπος βλάβης τους;"
+    sql: "SELECT machine_name, predicted_remaining_life, failure_type FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) AND predicted_remaining_life < 100 ORDER BY predicted_remaining_life ASC;"
+  - q: "Ποια είναι η κατανάλωση ενέργειας ανά ώρα της ημέρας;"
+    sql: "SELECT EXTRACT(hour FROM ts) AS hour_of_day, ROUND(AVG(energy_consumption)::numeric, 2) AS avg_energy FROM factory_telemetry_fixed GROUP BY hour_of_day ORDER BY hour_of_day;"
+  - q: "Πώς εξελίχθηκε η μέση θερμοκρασία ανά ημέρα;"
+    sql: "SELECT DATE_TRUNC('day', ts) AS date, ROUND(AVG(temperature)::numeric, 2) AS avg_temperature FROM factory_telemetry_fixed GROUP BY date ORDER BY date;"
+  - q: "Ελάχιστη και μέγιστη θερμοκρασία ανά τύπο μηχανής;"
+    sql: "SELECT machine_type, ROUND(MIN(temperature)::numeric, 2) AS min_temperature, ROUND(MAX(temperature)::numeric, 2) AS max_temperature FROM factory_telemetry_fixed GROUP BY machine_type ORDER BY machine_type;"
+  - q: "Ποια είναι η μέση προβλεπόμενη υπολειπόμενη ζωή ανά τύπο μηχανής;"
+    sql: "SELECT machine_type, ROUND(AVG(predicted_remaining_life)::numeric, 2) AS avg_remaining_life FROM factory_telemetry_fixed GROUP BY machine_type ORDER BY avg_remaining_life;"
+  - q: "Συνολικά, σε πόσες μετρήσεις είχε σημειωθεί ανάγκη συντήρησης;"
+    sql: "SELECT COUNT(*) AS total_maintenance_flags FROM factory_telemetry_fixed WHERE maintenance_required = 1;"
+  - q: "Συνολική κατανάλωση ενέργειας ανά τύπο μηχανής τις τελευταίες 7 ημέρες;"
+    sql: "SELECT machine_type, ROUND(SUM(energy_consumption)::numeric, 2) AS total_energy FROM factory_telemetry_fixed WHERE ts >= (SELECT MAX(ts) FROM factory_telemetry_fixed) - INTERVAL '7 days' GROUP BY machine_type ORDER BY machine_type;"

@@ -1,0 +1,104 @@
+version: "3.8"
+
+services:
+  thingsboard:
+    image: thingsboard/tb-postgres:latest
+    container_name: thingsboard
+    restart: always
+    ports:
+      - "127.0.0.1:9090:9090"
+      - "127.0.0.1:1883:1883"
+      - "127.0.0.1:5683:5683/udp"
+    environment:
+      TB_QUEUE_TYPE: in-memory
+    volumes:
+      - ./tb-data:/data
+      - ./tb-logs:/var/log/thingsboard
+    networks:
+      - shared-net
+
+  datalake:
+    image: postgres:16
+    container_name: datalake-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: iot_staging
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - ./datalake-data:/var/lib/postgresql/data
+    networks:
+      - shared-net
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: always
+    ports:
+      - "127.0.0.1:8080:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_KEEP_ALIVE=-1
+      - OLLAMA_LOAD_TIMEOUT=30m
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - shared-net
+  nl2sql-api:
+    build: ./nl2sql-api
+    container_name: nl2sql-api
+    restart: always
+    ports:
+      - "127.0.0.1:8001:8000"
+    environment:
+      - DB_HOST=datalake-postgres
+      - DB_NAME=iot_staging
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_PORT=5432
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_TIMEOUT=1800
+      - OLLAMA_KEEP_ALIVE=-1
+      - WARMUP_ON_STARTUP=true
+      - SQL_MODEL=${SQL_MODEL:-qwen2.5-coder:14b}
+      - ANSWER_MODEL=${ANSWER_MODEL:-qwen2.5-coder:14b}
+      - DOMAIN_FILE=domain.yaml
+      - DB_SCHEMA=public
+    volumes:
+      - ./nl2sql-api/domain.yaml:/app/domain.yaml:ro
+    depends_on:
+      - datalake
+      - ollama
+    networks:
+      - shared-net
+
+  nl2sql-ui:
+    build: ./nl2sql-ui
+    container_name: nl2sql-ui
+    restart: always
+    ports:
+      - "127.0.0.1:5174:5173"
+      - "127.0.0.1:24679:24678"
+    environment:
+      - SMART_API_URL=http://nl2sql-api:8000/ask
+    depends_on:
+      - nl2sql-api
+    networks:
+      - shared-net
+
+volumes:
+  ollama_data:
+
+networks:
+  shared-net:
+    external: true
+    name: shared-services

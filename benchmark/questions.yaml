@@ -1,0 +1,454 @@
+- id: simple_01
+  category: simple
+  question: "Πόσες εγγραφές υπάρχουν συνολικά;"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed;"
+  result_check: scalar
+
+- id: simple_02
+  category: simple
+  question: "Πόσες διαφορετικές μηχανές υπάρχουν;"
+  gold_sql: "SELECT COUNT(DISTINCT machine_id) AS n FROM factory_telemetry_fixed;"
+  result_check: scalar
+
+- id: simple_03
+  category: simple
+  question: "Ποιοι είναι οι τύποι μηχανών;"
+  gold_sql: "SELECT DISTINCT machine_type FROM factory_telemetry_fixed ORDER BY machine_type;"
+  result_check: set
+
+- id: agg_01
+  category: aggregation
+  question: "Ποια είναι η μέση θερμοκρασία;"
+  gold_sql: "SELECT ROUND(AVG(temperature)::numeric, 2) AS avg_temperature FROM factory_telemetry_fixed;"
+  result_check: scalar
+
+- id: agg_02
+  category: aggregation
+  question: "Ποια είναι η μέγιστη κατανάλωση ενέργειας που έχει καταγραφεί;"
+  gold_sql: "SELECT ROUND(MAX(energy_consumption)::numeric, 2) AS max_energy FROM factory_telemetry_fixed;"
+  result_check: scalar
+
+- id: agg_03
+  category: aggregation
+  question: "Ποια η ελάχιστη και ποια η μέγιστη πίεση;"
+  gold_sql: "SELECT ROUND(MIN(pressure)::numeric, 2) AS min_pressure, ROUND(MAX(pressure)::numeric, 2) AS max_pressure FROM factory_telemetry_fixed;"
+  result_check: scalar
+
+- id: agg_04
+  category: aggregation
+  question: "Πόσες ανωμαλίες έχουν καταγραφεί συνολικά;"
+  gold_sql: "SELECT COUNT(*) AS anomalies FROM factory_telemetry_fixed WHERE anomaly_flag = 1;"
+  result_check: scalar
+
+- id: group_01
+  category: group_sort
+  question: "Μέση θερμοκρασία ανά τύπο μηχανής, από την υψηλότερη στη χαμηλότερη."
+  gold_sql: "SELECT machine_type, ROUND(AVG(temperature)::numeric, 2) AS avg_temperature FROM factory_telemetry_fixed GROUP BY machine_type ORDER BY avg_temperature DESC;"
+  result_check: ordered
+
+- id: group_02
+  category: group_sort
+  question: "Συνολική κατανάλωση ενέργειας ανά τύπο μηχανής."
+  gold_sql: "SELECT machine_type, ROUND(SUM(energy_consumption)::numeric, 2) AS total_energy FROM factory_telemetry_fixed GROUP BY machine_type ORDER BY total_energy DESC;"
+  result_check: set
+
+- id: group_03
+  category: group_sort
+  question: "Ποιες είναι οι 5 μηχανές με τις περισσότερες ανωμαλίες σε όλη την περίοδο;"
+  gold_sql: "SELECT machine_name FROM factory_telemetry_fixed WHERE anomaly_flag = 1 GROUP BY machine_name ORDER BY COUNT(*) DESC LIMIT 5;"
+  result_check: set
+
+- id: group_04
+  category: group_sort
+  question: "Πλήθος εγγραφών ανά τύπο βλάβης, εξαιρώντας τις κανονικές."
+  gold_sql: "SELECT failure_type, COUNT(*) AS n FROM factory_telemetry_fixed WHERE failure_type <> 'Normal' GROUP BY failure_type ORDER BY n DESC;"
+  result_check: set
+
+- id: temporal_01
+  category: temporal
+  question: "Πώς εξελίχθηκε η μέση θερμοκρασία ανά ημέρα;"
+  gold_sql: "SELECT DATE_TRUNC('day', ts) AS day, ROUND(AVG(temperature)::numeric, 2) AS avg_temperature FROM factory_telemetry_fixed GROUP BY day ORDER BY day;"
+  result_check: ordered
+
+- id: temporal_02
+  category: temporal
+  question: "Μέση κατανάλωση ενέργειας ανά ώρα της ημέρας."
+  gold_sql: "SELECT EXTRACT(hour FROM ts) AS hour_of_day, ROUND(AVG(energy_consumption)::numeric, 2) AS avg_energy FROM factory_telemetry_fixed GROUP BY hour_of_day ORDER BY hour_of_day;"
+  result_check: ordered
+
+- id: temporal_03
+  category: temporal
+  question: "Ποιος είναι ο μέσος όρος κατανάλωσης ενέργειας την τελευταία εβδομάδα;"
+  gold_sql: "SELECT ROUND(AVG(energy_consumption)::numeric, 2) AS avg_energy FROM factory_telemetry_fixed WHERE ts >= (SELECT MAX(ts) FROM factory_telemetry_fixed) - INTERVAL '7 days';"
+  result_check: scalar
+
+- id: temporal_04
+  category: temporal
+  question: "Πόσες ανωμαλίες καταγράφηκαν την τελευταία ημέρα των δεδομένων;"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE anomaly_flag = 1 AND ts::date = (SELECT MAX(ts)::date FROM factory_telemetry_fixed);"
+  result_check: scalar
+
+- id: nested_01
+  category: nested
+  question: "Ποιες μηχανές χρειάζονται συντήρηση αυτή τη στιγμή;"
+  gold_sql: "SELECT machine_name FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) AND maintenance_required = 1 ORDER BY machine_name;"
+  result_check: set
+
+- id: nested_02
+  category: nested
+  question: "Πόσες μηχανές έχουν αυτή τη στιγμή ενεργή βλάβη;"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) AND failure_type <> 'Normal';"
+  result_check: scalar
+
+- id: nested_03
+  category: nested
+  question: "Πόσες μετρήσεις έχουν θερμοκρασία πάνω από τον συνολικό μέσο όρο;"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE temperature > (SELECT AVG(temperature) FROM factory_telemetry_fixed);"
+  result_check: scalar
+
+- id: nested_04
+  category: nested
+  question: "Πόσες μηχανές έχουν ανωμαλία αυτή τη στιγμή;"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) AND anomaly_flag = 1;"
+  result_check: scalar
+  note: "'τώρα' on anomaly_flag, not asked elsewhere (nested_01/02/multi_02 cover maintenance_required/failure_type). Distinct from 'total anomalies ever' (history_flag), which counts readings and repeats machines. DB truth: 5."
+
+- id: nested_05
+  category: nested
+  question: "Ποιες μηχανές έχουν ανωμαλία αυτή τη στιγμή;"
+  gold_sql: "SELECT machine_name FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) AND anomaly_flag = 1 ORDER BY machine_name;"
+  result_check: set
+  note: "DB truth: Lathe_15, Lathe_16, Packer_46, Press_08, Press_10."
+
+- id: multi_01
+  category: multi_condition
+  question: "Πόσες εγγραφές έχουν θερμοκρασία πάνω από 90 και δόνηση πάνω από 60;"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE temperature > 90 AND vibration > 60;"
+  result_check: scalar
+
+- id: multi_02
+  category: multi_condition
+  question: "Ποιες μηχανές χρειάζονται συντήρηση και έχουν αυτή τη στιγμή κίνδυνο διακοπής;"
+  gold_sql: "SELECT machine_name FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) AND maintenance_required = 1 AND downtime_risk = 1 ORDER BY machine_name;"
+  result_check: set
+
+- id: multi_03
+  category: multi_condition
+  question: "Πόσες μετρήσεις αφορούν CNC Lathe ή Robotic Arm με ανωμαλία;"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE machine_type IN ('CNC Lathe', 'Robotic Arm') AND anomaly_flag = 1;"
+  result_check: scalar
+
+- id: para_01
+  category: paraphrase
+  question: "πια μηχανη τρωει τo πιο πολλα ρευμα συνολικα?"
+  gold_sql: "SELECT machine_name, ROUND(SUM(energy_consumption)::numeric, 2) AS total_energy FROM factory_telemetry_fixed GROUP BY machine_name ORDER BY total_energy DESC LIMIT 1;"
+  result_check: ordered
+
+- id: para_02
+  category: paraphrase
+  question: "ποσο ζεστες ειναι κατα μεσο ορο οι πρεσες;"
+  gold_sql: "SELECT ROUND(AVG(temperature)::numeric, 2) AS avg_temperature FROM factory_telemetry_fixed WHERE machine_type = 'Hydraulic Press';"
+  result_check: scalar
+
+- id: para_03
+  category: paraphrase
+  question: "δειξε μου ποσες φορες χαλασε καθε τυπος μηχανηματος"
+  gold_sql: "SELECT machine_type, COUNT(*) AS n FROM factory_telemetry_fixed WHERE failure_type <> 'Normal' GROUP BY machine_type ORDER BY n DESC;"
+  result_check: set
+
+- id: para_04
+  category: paraphrase
+  question: "ποιο μηχανημα εφτασε τη μεγαλυτερη δονηση σε μια μετρηση;"
+  gold_sql: "SELECT machine_name, ROUND(MAX(vibration)::numeric, 2) AS max_vibration FROM factory_telemetry_fixed GROUP BY machine_name ORDER BY max_vibration DESC LIMIT 1;"
+  result_check: ordered
+
+- id: hard_01
+  category: nested
+  question: "Ποιος τύπος μηχανής έχει το μεγαλύτερο ποσοστό ανωμαλιών επί των μετρήσεών του;"
+  gold_sql: "SELECT machine_type, ROUND((SUM(anomaly_flag) * 100.0 / COUNT(*))::numeric, 2) AS anomaly_pct FROM factory_telemetry_fixed GROUP BY machine_type ORDER BY anomaly_pct DESC LIMIT 1;"
+  result_check: ordered
+
+- id: hard_02
+  category: temporal
+  question: "Ποια ημέρα είχε τη μεγαλύτερη μέση θερμοκρασία;"
+  gold_sql: "SELECT DATE_TRUNC('day', ts) AS day, ROUND(AVG(temperature)::numeric, 2) AS avg_temperature FROM factory_telemetry_fixed GROUP BY day ORDER BY avg_temperature DESC LIMIT 1;"
+  result_check: ordered
+
+- id: na_01
+  category: non_answerable
+  question: "Ποιο είναι το χρώμα κάθε μηχανής;"
+  gold_sql: null
+  result_check: manual
+  note: "No colour column exists. Expected: the system says it cannot answer, does NOT invent data."
+
+- id: na_02
+  category: non_answerable
+  question: "Πόσοι εργαζόμενοι δουλεύουν σε κάθε βάρδια;"
+  gold_sql: null
+  result_check: manual
+  note: "No workers/shifts data. Expected: cannot answer."
+
+- id: mal_01
+  category: malformed
+  question: "ποσο ειναι ο μεσος ορος θερμοκρασιας"
+  gold_sql: "SELECT ROUND(AVG(temperature)::numeric, 2) AS v FROM factory_telemetry_fixed;"
+  result_check: scalar
+
+- id: mal_02
+  category: malformed
+  question: "AVG temperature ανα machine_type"
+  gold_sql: "SELECT machine_type, ROUND(AVG(temperature)::numeric, 2) AS v FROM factory_telemetry_fixed GROUP BY machine_type;"
+  result_check: set
+
+- id: mal_03
+  category: malformed
+  question: "ΠΟΙΟ ΜΗΧΑΝΗΜΑ ΤΡΩΕΙ ΤΟ ΠΙΟ ΠΟΛΥ ΡΕΥΜΑ ΣΥΝΟΛΙΚΑ"
+  gold_sql: "SELECT machine_name, ROUND(SUM(energy_consumption)::numeric, 2) AS v FROM factory_telemetry_fixed GROUP BY machine_name ORDER BY v DESC LIMIT 1;"
+  result_check: ordered
+
+- id: mal_04
+  category: malformed
+  question: "ποσες φορες εγινε overheating"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE failure_type = 'Overheating';"
+  result_check: scalar
+
+- id: mal_05
+  category: malformed
+  question: "dwse mou th mesh donhsh ana typo mhxanhs"
+  gold_sql: "SELECT machine_type, ROUND(AVG(vibration)::numeric, 2) AS v FROM factory_telemetry_fixed GROUP BY machine_type;"
+  result_check: set
+
+- id: mal_06
+  category: malformed
+  question: "ποσα rows εχει ο πινακας??"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed;"
+  result_check: scalar
+
+- id: mal_07
+  category: malformed
+  question: "μηχανηματα   με   θερμοκρασια>90"
+  gold_sql: "SELECT DISTINCT machine_name FROM factory_telemetry_fixed WHERE temperature > 90 ORDER BY machine_name;"
+  result_check: set
+
+- id: typo_01
+  category: typo
+  question: "ποια ειναι η μεση temperature ανα τυπο μηχανης"
+  gold_sql: "SELECT machine_type, ROUND(AVG(temperature)::numeric, 2) AS v FROM factory_telemetry_fixed GROUP BY machine_type;"
+  result_check: set
+
+- id: typo_02
+  category: typo
+  question: "ποσες anomalies καταγραφηκαν συνολικ"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE anomaly_flag = 1;"
+  result_check: scalar
+
+- id: typo_03
+  category: typo
+  question: "δωσε μ τη μεγιστη πιεοη που εχει καταγραφει"
+  gold_sql: "SELECT ROUND(MAX(pressure)::numeric, 2) AS v FROM factory_telemetry_fixed;"
+  result_check: scalar
+
+- id: typo_04
+  category: typo
+  question: "ποσα διαφορετικα machines υπαρχουν"
+  gold_sql: "SELECT COUNT(DISTINCT machine_id) AS n FROM factory_telemetry_fixed;"
+  result_check: scalar
+
+- id: typo_05
+  category: typo
+  question: "μεση καταναλωοη energy ανa ωρα της ημερας"
+  gold_sql: "SELECT EXTRACT(hour FROM ts) AS hour_of_day, ROUND(AVG(energy_consumption)::numeric, 2) AS v FROM factory_telemetry_fixed GROUP BY hour_of_day ORDER BY hour_of_day;"
+  result_check: ordered
+
+- id: typo_06
+  category: typo
+  question: "ποιο machine εχει τη μεγαλυτρη μεση θερμοκρασ"
+  gold_sql: "SELECT machine_name FROM factory_telemetry_fixed GROUP BY machine_name ORDER BY AVG(temperature) DESC LIMIT 1;"
+  result_check: set
+
+- id: hist_01
+  category: chat_history
+  history:
+    - question: "Ποια είναι η μέση θερμοκρασία ανά τύπο μηχανής;"
+      sql: "SELECT machine_type, ROUND(AVG(temperature)::numeric, 2) AS v FROM factory_telemetry_fixed GROUP BY machine_type ORDER BY machine_type;"
+  question: "και η μέγιστη;"
+  gold_sql: "SELECT machine_type, ROUND(MAX(temperature)::numeric, 2) AS v FROM factory_telemetry_fixed GROUP BY machine_type ORDER BY machine_type;"
+  result_check: set
+
+- id: hist_02
+  category: chat_history
+  history:
+    - question: "Πόσες ανωμαλίες έχουν καταγραφεί συνολικά;"
+      sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE anomaly_flag = 1;"
+  question: "και πόσες από αυτές αφορούν CNC Lathe;"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE anomaly_flag = 1 AND machine_type = 'CNC Lathe';"
+  result_check: scalar
+
+- id: hist_03
+  category: chat_history
+  history:
+    - question: "Ποια είναι η μέση κατανάλωση ενέργειας ανά ώρα της ημέρας;"
+      sql: "SELECT EXTRACT(hour FROM ts) AS hour_of_day, ROUND(AVG(energy_consumption)::numeric, 2) AS v FROM factory_telemetry_fixed GROUP BY hour_of_day ORDER BY hour_of_day;"
+  question: "μόνο για τις νυχτερινές ώρες, 0 έως 6"
+  gold_sql: "SELECT EXTRACT(hour FROM ts) AS hour_of_day, ROUND(AVG(energy_consumption)::numeric, 2) AS v FROM factory_telemetry_fixed WHERE EXTRACT(hour FROM ts) BETWEEN 0 AND 6 GROUP BY hour_of_day ORDER BY hour_of_day;"
+  result_check: ordered
+
+- id: hist_04
+  category: chat_history
+  history:
+    - question: "Ποιες μηχανές χρειάζονται συντήρηση αυτή τη στιγμή;"
+      sql: "SELECT machine_name FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) AND maintenance_required = 1 ORDER BY machine_name;"
+  question: "πόσες είναι;"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) AND maintenance_required = 1;"
+  result_check: scalar
+
+- id: hist_05
+  category: chat_history
+  history:
+    - question: "Πόσες μετρήσεις έγιναν τον Μάιο του 2026;"
+      sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE ts >= DATE '2026-05-01' AND ts < DATE '2026-06-01';"
+  question: "και ποια ήταν η μέση θερμοκρασία εκείνο τον μήνα;"
+  gold_sql: "SELECT ROUND(AVG(temperature)::numeric, 2) AS v FROM factory_telemetry_fixed WHERE ts >= DATE '2026-05-01' AND ts < DATE '2026-06-01';"
+  result_check: scalar
+
+- id: hard_04
+  category: hard
+  question: "Πόσες ημέρες είχαν μέση θερμοκρασία πάνω από 75;"
+  gold_sql: "SELECT COUNT(*) AS n FROM (SELECT DATE_TRUNC('day', ts) d FROM factory_telemetry_fixed GROUP BY d HAVING AVG(temperature) > 75) t;"
+  result_check: scalar
+
+- id: hard_05
+  category: hard
+  question: "Ποια μηχανή έχει τη μεγαλύτερη τυπική απόκλιση θερμοκρασίας;"
+  gold_sql: "SELECT machine_name, ROUND(STDDEV(temperature)::numeric, 2) AS s FROM factory_telemetry_fixed GROUP BY machine_name ORDER BY s DESC LIMIT 1;"
+  result_check: ordered
+
+- id: hard_06
+  category: hard
+  question: "Ποιος είναι ο μέσος όρος των ημερήσιων μέγιστων θερμοκρασιών;"
+  gold_sql: "SELECT ROUND(AVG(dmax)::numeric, 2) AS v FROM (SELECT DATE_TRUNC('day', ts) d, MAX(temperature) dmax FROM factory_telemetry_fixed GROUP BY d) t;"
+  result_check: scalar
+
+- id: hard_08
+  category: hard
+  question: "Μέση θερμοκρασία στις ώρες αιχμής, δηλαδή από τις 8 έως τις 16."
+  gold_sql: "SELECT ROUND(AVG(temperature)::numeric, 2) AS v FROM factory_telemetry_fixed WHERE EXTRACT(hour FROM ts) BETWEEN 8 AND 16;"
+  result_check: scalar
+
+- id: hard_09
+  category: hard
+  question: "Οι 5 μηχανές με τη χαμηλότερη προβλεπόμενη υπολειπόμενη ζωή στην τελευταία τους μέτρηση."
+  gold_sql: "SELECT machine_name, predicted_remaining_life FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) ORDER BY predicted_remaining_life ASC LIMIT 5;"
+  result_check: ordered
+
+- id: hard_10
+  category: hard
+  question: "Ποιες μηχανές έχουν, στην τελευταία τους μέτρηση, προβλεπόμενη ζωή κάτω από τον μέσο όρο όλων των μηχανών;"
+  gold_sql: "SELECT machine_name FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id) AND predicted_remaining_life < (SELECT AVG(predicted_remaining_life) FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id)) ORDER BY machine_name;"
+  result_check: set
+
+- id: rel_01
+  category: relative_time
+  question: "Ποια είναι η συνολική κατανάλωση ενέργειας ανά τύπο μηχανής τις τελευταίες 7 ημέρες;"
+  gold_sql: "SELECT machine_type, ROUND(SUM(energy_consumption)::numeric, 2) AS total_energy FROM factory_telemetry_fixed WHERE ts >= (SELECT MAX(ts) FROM factory_telemetry_fixed) - INTERVAL '7 days' GROUP BY machine_type ORDER BY machine_type;"
+  result_check: set
+
+- id: rel_02
+  category: relative_time
+  question: "Πόσες ανωμαλίες καταγράφηκαν ανά τύπο μηχανής την τελευταία εβδομάδα;"
+  gold_sql: "SELECT machine_type, COUNT(*) AS n FROM factory_telemetry_fixed WHERE anomaly_flag = 1 AND ts >= (SELECT MAX(ts) FROM factory_telemetry_fixed) - INTERVAL '7 days' GROUP BY machine_type ORDER BY machine_type;"
+  result_check: set
+
+- id: rel_03
+  category: relative_time
+  question: "Ποια η μέση θερμοκρασία ανά ώρα τις τελευταίες 3 ημέρες;"
+  gold_sql: "SELECT EXTRACT(hour FROM ts) AS hour_of_day, ROUND(AVG(temperature)::numeric, 2) AS avg_temperature FROM factory_telemetry_fixed WHERE ts >= (SELECT MAX(ts) FROM factory_telemetry_fixed) - INTERVAL '3 days' GROUP BY hour_of_day ORDER BY hour_of_day;"
+  result_check: ordered
+
+- id: rel_04
+  category: relative_time
+  question: "Πόσες μετρήσεις έγιναν το τελευταίο 24ωρο;"
+  gold_sql: "SELECT COUNT(*) AS n FROM factory_telemetry_fixed WHERE ts >= (SELECT MAX(ts) FROM factory_telemetry_fixed) - INTERVAL '24 hours';"
+  result_check: scalar
+
+- id: rel_05
+  category: relative_time
+  question: "Πώς εξελίχθηκε η μέση υγρασία ανά ημέρα τις τελευταίες 7 ημέρες;"
+  gold_sql: "SELECT DATE_TRUNC('day', ts) AS day, ROUND(AVG(humidity)::numeric, 2) AS avg_humidity FROM factory_telemetry_fixed WHERE ts >= (SELECT MAX(ts) FROM factory_telemetry_fixed) - INTERVAL '7 days' GROUP BY day ORDER BY day;"
+  result_check: ordered
+
+- id: rel_06
+  category: relative_time
+  question: "Ποια είναι η συνολική κατανάλωση ενέργειας ανά τύπο μηχανής για τη χθεσινή ημέρα;"
+  gold_sql: "SELECT machine_type, ROUND(SUM(energy_consumption)::numeric, 2) AS total_energy FROM factory_telemetry_fixed WHERE ts::date = (SELECT MAX(ts)::date FROM factory_telemetry_fixed) - 1 GROUP BY machine_type ORDER BY machine_type;"
+  result_check: set
+  note: "'χθες' on static data = the calendar day before MAX(ts)::date (2026-06-16); Packaging Unit 831.19."
+
+- id: rel_07
+  category: relative_time
+  question: "Ποια η μεγαλύτερη και ποια η μικρότερη θερμοκρασία σήμερα και σε ποιες μηχανές;"
+  gold_sql: null
+  result_check: manual
+  note: "'σήμερα' = MAX(ts)::date (2026-06-17). Check the answer gives a max and a min temperature with the machine names, from that day only."
+
+- id: win_01
+  category: window
+  question: "Ποιες 3 ημέρες είχαν τη μεγαλύτερη αύξηση μέσης θερμοκρασίας σε σχέση με την προηγούμενη ημέρα;"
+  gold_sql: "SELECT to_char(d, 'YYYY-MM-DD') AS day FROM (SELECT DATE_TRUNC('day', ts) AS d, AVG(temperature) - LAG(AVG(temperature)) OVER (ORDER BY DATE_TRUNC('day', ts)) AS delta FROM factory_telemetry_fixed GROUP BY DATE_TRUNC('day', ts)) t WHERE delta IS NOT NULL ORDER BY delta DESC LIMIT 3;"
+  result_check: ordered
+  note: "Compare on the 3 days only — the delta value is sensitive to rounding order (round-then-diff vs diff-then-round)."
+
+- id: win_02
+  category: window
+  question: "Για κάθε τύπο μηχανής, ποια μηχανή έχει τη μεγαλύτερη συνολική κατανάλωση ενέργειας;"
+  gold_sql: "SELECT machine_name FROM (SELECT machine_name, RANK() OVER (PARTITION BY machine_type ORDER BY SUM(energy_consumption) DESC) rnk FROM factory_telemetry_fixed GROUP BY machine_name, machine_type) t WHERE rnk = 1 ORDER BY machine_name;"
+  result_check: set
+
+- id: win_03
+  category: window
+  question: "Τι ποσοστό της συνολικής κατανάλωσης ενέργειας αντιστοιχεί σε κάθε τύπο μηχανής;"
+  gold_sql: "SELECT machine_type, ROUND((SUM(energy_consumption) * 100.0 / SUM(SUM(energy_consumption)) OVER ())::numeric, 2) AS pct FROM factory_telemetry_fixed GROUP BY machine_type ORDER BY machine_type;"
+  result_check: set
+
+- id: win_04
+  category: window
+  question: "Ποια μηχανή έχει τη 2η μεγαλύτερη μέγιστη θερμοκρασία;"
+  gold_sql: "SELECT machine_name, ROUND(mx::numeric, 2) AS max_temp FROM (SELECT machine_name, MAX(temperature) mx, ROW_NUMBER() OVER (ORDER BY MAX(temperature) DESC) rn FROM factory_telemetry_fixed GROUP BY machine_name) t WHERE rn = 2;"
+  result_check: ordered
+
+- id: win_05
+  category: window
+  question: "Για κάθε μηχανή, πόσο διαφέρει η συνολική της κατανάλωση ενέργειας από τον μέσο όρο του τύπου της;"
+  gold_sql: "SELECT machine_name, ROUND((SUM(energy_consumption) - AVG(SUM(energy_consumption)) OVER (PARTITION BY machine_type))::numeric, 2) AS diff FROM factory_telemetry_fixed GROUP BY machine_name, machine_type ORDER BY machine_name;"
+  result_check: set
+
+- id: sub_01
+  category: subquery
+  question: "Ποιες μηχανές έχουν συνολική κατανάλωση ενέργειας πάνω από τον μέσο όρο του τύπου τους;"
+  gold_sql: "SELECT m.machine_name FROM (SELECT machine_name, machine_type, SUM(energy_consumption) total FROM factory_telemetry_fixed GROUP BY 1, 2) m WHERE m.total > (SELECT AVG(t.total) FROM (SELECT machine_name, machine_type, SUM(energy_consumption) total FROM factory_telemetry_fixed GROUP BY 1, 2) t WHERE t.machine_type = m.machine_type) ORDER BY 1;"
+  result_check: set
+
+- id: sub_02
+  category: subquery
+  question: "Ποιες μηχανές δεν είχαν ποτέ καταγεγραμμένη ανωμαλία;"
+  gold_sql: "SELECT DISTINCT machine_name FROM factory_telemetry_fixed f WHERE NOT EXISTS (SELECT 1 FROM factory_telemetry_fixed a WHERE a.machine_id = f.machine_id AND a.anomaly_flag = 1) ORDER BY machine_name;"
+  result_check: set
+  note: "Correct answer is an EMPTY set — every machine has at least one anomaly. Tests handling of a legitimately empty result."
+
+- id: sub_03
+  category: subquery
+  question: "Για κάθε τύπο μηχανής, ποια μηχανή έχει τη μεγαλύτερη μέση θερμοκρασία;"
+  gold_sql: "SELECT machine_name FROM (SELECT DISTINCT ON (machine_type) machine_type, machine_name FROM (SELECT machine_type, machine_name, AVG(temperature) a FROM factory_telemetry_fixed GROUP BY 1, 2) t ORDER BY machine_type, a DESC) x ORDER BY machine_name;"
+  result_check: set
+
+- id: sub_04
+  category: subquery
+  question: "Πόσες μηχανές έχουν προβλεπόμενη υπολειπόμενη ζωή (στην τελευταία τους μέτρηση) κάτω από τη διάμεσο όλων;"
+  gold_sql: "SELECT COUNT(*) AS n FROM (SELECT predicted_remaining_life prl FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id)) m WHERE prl < (SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY predicted_remaining_life) FROM (SELECT predicted_remaining_life FROM factory_telemetry_fixed WHERE ts IN (SELECT MAX(ts) FROM factory_telemetry_fixed GROUP BY machine_id)) x);"
+  result_check: scalar
+
+- id: sub_05
+  category: subquery
+  question: "Ποια είναι η διάμεσος (median) θερμοκρασία ανά τύπο μηχανής;"
+  gold_sql: "SELECT machine_type, ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY temperature)::numeric, 2) AS median_temp FROM factory_telemetry_fixed GROUP BY machine_type ORDER BY machine_type;"
+  result_check: set

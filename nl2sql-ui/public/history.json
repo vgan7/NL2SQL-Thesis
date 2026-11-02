@@ -1,0 +1,123 @@
+{
+  "activeChatId": 2,
+  "chats": [
+    {
+      "id": 1,
+      "title": "Press-07 Health Review",
+      "snippet": "Investigate uptime loss and pressure instability during the current shift.",
+      "timestamp": "Today 09:42",
+      "messages": [
+        {
+          "role": "assistant",
+          "author": "Assistant",
+          "time": "09:41",
+          "content": "I can help analyze industrial data such as uptime, alarms, machine status, temperatures, pressure, and production errors. Ask a question in natural language and I'll summarize the operational picture clearly."
+        },
+        {
+          "role": "user",
+          "author": "You",
+          "time": "09:42",
+          "content": "Why did uptime drop on Press-07 this shift?"
+        },
+        {
+          "role": "assistant",
+          "author": "Assistant",
+          "time": "09:42",
+          "content": "The main driver appears to be repeated pressure instability, which likely caused short interruptions and reduced effective runtime. When the backend is connected, this answer area can also include the exact supporting evidence."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Boiler-04 Pressure Summary",
+      "snippet": "Summarize pressure behavior and operator interventions over the last 24 hours.",
+      "timestamp": "Active now",
+      "messages": [
+        {
+          "role": "user",
+          "author": "You",
+          "time": "10:03",
+          "content": "Summarize Boiler-04 pressure behavior over the last day."
+        },
+        {
+          "role": "assistant",
+          "author": "Assistant",
+          "time": "10:03",
+          "content": "Boiler-04 pressure remained mostly stable, with two short deviations that recovered without sustained downtime."
+        },
+        {
+          "role": "user",
+          "author": "You",
+          "time": "10:04",
+          "content": "Were any operator interventions recorded?"
+        },
+        {
+          "role": "assistant",
+          "author": "Assistant",
+          "time": "10:04",
+          "content": "Yes. Two manual setpoint corrections were recorded, both within a short interval after the morning pressure dip."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Filler-11 Error Analysis",
+      "snippet": "Explain repeated jam events and suggest the most likely causes.",
+      "timestamp": "Yesterday",
+      "messages": [
+        {
+          "role": "user",
+          "author": "You",
+          "time": "17:08",
+          "content": "Why is Filler-11 repeating jam errors?"
+        },
+        {
+          "role": "assistant",
+          "author": "Assistant",
+          "time": "17:10",
+          "content": "The repeated jam pattern suggests a mechanical feed issue or inconsistent product alignment rather than a control-system fault."
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Line 3 Shift Handover",
+      "snippet": "Create a concise production handover with anomalies, downtime, and actions.",
+      "timestamp": "Monday",
+      "messages": [
+        {
+          "role": "user",
+          "author": "You",
+          "time": "15:52",
+          "content": "Prepare a concise shift handover for Line 3."
+        },
+        {
+          "role": "assistant",
+          "author": "Assistant",
+          "time": "15:55",
+          "content": "Line 3 completed the shift with one notable interruption on Press-07, while the remaining assets stayed within expected operating ranges."
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Mixer-02 Temperature Drift",
+      "snippet": "Check whether the observed temperature rise indicates a real process issue.",
+      "timestamp": "Last week",
+      "messages": [
+        {
+          "role": "user",
+          "author": "You",
+          "time": "11:20",
+          "content": "Is the Mixer-02 temperature increase a real concern?"
+        },
+        {
+          "role": "assistant",
+          "author": "Assistant",
+          "time": "11:21",
+          "content": "The rise looks gradual and still within the expected process band, so it appears to be a trend to monitor rather than an immediate alarm condition."
+        }
+      ]
+    }
+  ]
+}
